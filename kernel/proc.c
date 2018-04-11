@@ -184,6 +184,8 @@ clone(void){
     	return -1;	
 	}
 
+    cprintf("create: stack addr: 0x%x\n", stack);
+
     // Copy register info
     np->pgdir = proc->pgdir;
     np->parent = proc;
@@ -237,16 +239,18 @@ join(void)
         continue;
 
       havekids = 1;
+
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
-        //p->kstack = 0;
+        p->kstack = 0;
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        cprintf("stack addr: 0x%x\n", stack);
 
-        kfree(*stack);
+//        kfree((char*)stack);
 
         release(&ptable.lock);
         return pid;

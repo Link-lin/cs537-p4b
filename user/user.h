@@ -50,7 +50,5 @@ void loc_init(lock_t *lk);
 void lock_acquire(lock_t *lk);
 void lock_release(lock_t *lk);
 
-
-
 #endif // _USER_H_
 
