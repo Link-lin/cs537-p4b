@@ -53,11 +53,11 @@ found:
     return 0;
   }
   sp = p->kstack + KSTACKSIZE;
-  
+
   // Leave room for trap frame.
   sp -= sizeof *p->tf;
   p->tf = (struct trapframe*)sp;
-  
+
   // Set up new context to start executing at forkret,
   // which returns to trapret.
   sp -= 4;
@@ -77,7 +77,7 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
-  
+
   p = allocproc();
   acquire(&ptable.lock);
   initproc = p;
@@ -107,7 +107,7 @@ int
 growproc(int n)
 {
   uint sz;
-  
+
   sz = proc->sz;
   if(n > 0){
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
@@ -152,7 +152,7 @@ fork(void)
     if(proc->ofile[i])
       np->ofile[i] = filedup(proc->ofile[i]);
   np->cwd = idup(proc->cwd);
- 
+
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
@@ -178,13 +178,17 @@ clone(void){
 	if(argptr(3, (void*)&stack, sizeof(stack) < 0)){
 			return -1;
 	}
-    //if(((uint)stack % PGSIZE)!= 0) return -1;
+
+    if((uint)stack % 0x1000)
+        return -1;
+
+    if(proc->sz < (uint)stack + 0x1000)
+        return -1;
+
     // Allocate process.
   	if((np = allocproc()) == 0){
-    	return -1;	
+    	return -1;
 	}
-
-    cprintf("create: stack addr: 0x%x\n", stack);
 
     // Copy register info
     np->pgdir = proc->pgdir;
@@ -193,13 +197,16 @@ clone(void){
     *np->tf = *proc->tf;
 
     np->tf->eip = (uint)fcn;
-    
-    uint* s = (uint*) stack;
+
+    uint* s = (uint*) (stack + 0x1000 - 0xc);
 
     s[0] = 0xffffffff;
 	s[1] = (uint)arg1;
     s[2] = (uint)arg2;
-	np->tf->esp = (uint)stack;
+	np->tf->esp = (uint)stack + 0x1000 - 0xc;
+	np->tf->ebp = (uint)stack + 0x1000 - 0xc;
+
+    np->ustack = stack;
 
     //copyout(np->pgdir, np->tf->esp, arr, (2)*4);
 
@@ -224,9 +231,12 @@ join(void)
   int havekids, pid;
   void **stack;
 
-  if(argptr(3, (void*)&stack, sizeof(stack) < 0)){
+  if(argptr(0, (void*)&stack, sizeof(*stack) < 0)){
 			return -1;
   }
+
+  if(proc->sz < (uint)stack + 4)
+      return -1;
 
   acquire(&ptable.lock);
   for(;;){
@@ -248,9 +258,8 @@ join(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        cprintf("stack addr: 0x%x\n", stack);
 
-//        kfree((char*)stack);
+        *stack = p->ustack;
 
         release(&ptable.lock);
         return pid;
@@ -266,7 +275,7 @@ join(void)
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(proc, &ptable.lock);  //DOC: wait-sleep
   }
-    
+
 
     return -1;
 }
@@ -434,7 +443,7 @@ forkret(void)
 {
   // Still holding ptable.lock from scheduler.
   release(&ptable.lock);
-  
+
   // Return to "caller", actually trapret (see allocproc).
 }
 
@@ -537,7 +546,7 @@ procdump(void)
   struct proc *p;
   char *state;
   uint pc[10];
-  
+
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;

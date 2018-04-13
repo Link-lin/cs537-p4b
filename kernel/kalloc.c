@@ -41,7 +41,6 @@ kfree(char *v)
   struct run *r;
 
   if((uint)v % PGSIZE || v < end || (uint)v >= PHYSTOP)  {
-    cprintf("v: 0x%x end: 0x%x, PHYSTOP: 0x%x\n", v, end, PHYSTOP);
     panic("kfree");
   }
 
